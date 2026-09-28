@@ -92,7 +92,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribeRole: (() => void) | undefined;
 
+    // Safety timeout: if Firebase Auth never fires onAuthStateChanged
+    // (e.g. network blocked in sandboxed environments), force loading off
+    // so the login screen is shown instead of a blank page.
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      clearTimeout(safetyTimeout);
       setUser(currentUser);
       
       if (unsubscribeRole) {
@@ -161,6 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
+      clearTimeout(safetyTimeout);
       unsubscribeAuth();
       if (unsubscribeRole) unsubscribeRole();
     };
