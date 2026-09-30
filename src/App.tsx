@@ -1,19 +1,13 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState } from 'react';
-import { AuthProvider, useAuth } from './AuthContext';
-import { loginWithEmail, auth } from './firebase';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { AuthProvider, useAuth, ADMIN_EMAIL, ADMIN_PASS } from './AuthContext';
+import { supabase } from './supabase';
 import Dashboard from './Dashboard';
 import { LogIn } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 function AppContent() {
   const { user, loading, setAdminSession } = useAuth();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -25,7 +19,8 @@ function AppContent() {
       return;
     }
     try {
-      await sendPasswordResetEmail(auth, cleanEmail);
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+      if (error) throw error;
       toast.success(`Email di ripristino password inviata a ${cleanEmail}!`);
     } catch (err: any) {
       console.warn('Errore reset password login:', err);
@@ -37,16 +32,11 @@ function AppContent() {
     e.preventDefault();
     if (!email || !password) return;
     setIsLoggingIn(true);
-    
+
     const cleanEmail = email.trim().toLowerCase();
 
-    // Consentito accesso amministratore con credenziali fornite
-    if (cleanEmail === 'coppolek@gmail.com' && password === 'Giuseppe76@') {
-      try {
-        await loginWithEmail(email.trim(), password);
-      } catch (err) {
-        console.warn('Accesso amministratore abilitato:', err);
-      }
+    // Admin bypass: hardcoded credentials
+    if (cleanEmail === ADMIN_EMAIL.toLowerCase() && password === ADMIN_PASS) {
       setAdminSession();
       toast.success('Accesso Amministratore effettuato con successo!');
       setIsLoggingIn(false);
@@ -54,9 +44,14 @@ function AppContent() {
     }
 
     try {
-      await loginWithEmail(email.trim(), password);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) throw error;
       toast.success('Accesso effettuato con successo!');
     } catch (error: any) {
+      console.warn('Login error:', error);
       toast.error('Errore di accesso: credenziali non valide.');
     } finally {
       setIsLoggingIn(false);
@@ -80,19 +75,19 @@ function AppContent() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Accesso al Sistema</h2>
           <p className="text-gray-500 mb-6 text-center text-sm">Accedi per gestire i registri giornalieri.</p>
-          
+
           <form onSubmit={handleEmailLogin} className="w-full flex flex-col gap-4">
-            <input 
-              type="email" 
-              placeholder="Indirizzo Email" 
+            <input
+              type="email"
+              placeholder="Indirizzo Email"
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
               className="w-full border border-gray-300 rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b4781]"
             />
-            <input 
-              type="password" 
-              placeholder="Password" 
+            <input
+              type="password"
+              placeholder="Password"
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -133,4 +128,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-
